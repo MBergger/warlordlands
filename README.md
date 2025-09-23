@@ -1,3 +1,6 @@
+# tiketti 1
+Sisältää kaksi serveriä joista käyttäjän käynnistetään "npm run dev" ja admin käynnistyy "npm run dev_admin".
+
 # Warlordlands Game Service
 
 A Node.js/Express web service for managing the Warlordlands game database.
@@ -59,6 +62,7 @@ https://creativecommons.org/licenses/by-nc-sa/4.0/
 ## Usage
 
 1. **Start the server**:
+
    ```bash
    # Development mode with auto-restart
    npm run dev_admin
