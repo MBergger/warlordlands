@@ -131,23 +131,28 @@ app.get('/logout', (req, res) => {
 // Admin dashboard
 app.get('/admin', requireAuth, async (req, res) => {
     try {
-        const tables = [
+        const tables1 = [
             { name: 'users', displayName: 'Admin Users' },
             { name: 'player', displayName: 'Players' },
             { name: 'realm', displayName: 'Realms' },
-            { name: 'unit_type', displayName: 'Unit Types' },
-            { name: 'keywords', displayName: 'Keywords' },
-            { name: 'unit_classes', displayName: 'Unit Classes' },
-            { name: 'terrain_types', displayName: 'Terrain Types' },
-            { name: 'map', displayName: 'Map Tiles' },
             { name: 'army', displayName: 'Armies' },
             { name: 'unit', displayName: 'Units' },
             { name: 'game_turns', displayName: 'Game Turns' },
             { name: 'commands', displayName: 'Commands' }
         ];
-        
+        const tables2 = [
+          
+            { name: 'unit_type', displayName: 'Unit Types' },
+            { name: 'keywords', displayName: 'Keywords' },
+            { name: 'unit_classes', displayName: 'Unit Classes' },
+            { name: 'terrain_types', displayName: 'Terrain Types' },
+            { name: 'map', displayName: 'Map Tiles' },
+            
+        ];
         res.render('admin', { 
-            tables,
+            tables1,
+            tables2,
+
             userNick: req.session.userNick 
         });
     } catch (error) {
