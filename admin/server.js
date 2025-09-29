@@ -507,11 +507,11 @@ app.get('/admin/:table', requireAuth, async (req, res) => {
 });
 
 // Generic table editing route
-app.get('/admin/:table/edit/:id', requireAuth, async (req, res) => {
-    const { table, id } = req.params;
+app.get('/admin/:table/edit/:type', requireAuth, async (req, res) => {
+    const { table, type } = req.params;
     
     try {
-        const [rows] = await pool.execute(`SELECT * FROM ${table} WHERE id = ?`, [id]);
+        const [rows] = await pool.execute(`SELECT * FROM ${table} WHERE type = ?`, [type]);
         const [columns] = await pool.execute(`DESCRIBE ${table}`);
         
         if (rows.length === 0) {
@@ -532,16 +532,16 @@ app.get('/admin/:table/edit/:id', requireAuth, async (req, res) => {
 });
 
 // Update record route
-app.post('/admin/:table/edit/:id', requireAuth, async (req, res) => {
-    const { table, id } = req.params;
+app.post('/admin/:table/edit/:type', requireAuth, async (req, res) => {
+    const { table, type } = req.params;
     const updateData = req.body;
     
     try {
-        const fields = Object.keys(updateData).filter(key => key !== 'id');
+        const fields = Object.keys(updateData).filter(key => key !== 'type');
         const values = fields.map(field => updateData[field]);
-        values.push(id);
+        values.push(type);
         
-        const query = `UPDATE ${table} SET ${fields.map(field => `${field} = ?`).join(', ')} WHERE id = ?`;
+        const query = `UPDATE ${table} SET ${fields.map(field => `${field} = ?`).join(', ')} WHERE type = ?`;
         await pool.execute(query, values);
         
         res.redirect(`/admin/${table}`);
