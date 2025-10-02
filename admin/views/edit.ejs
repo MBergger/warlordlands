@@ -1,11 +1,17 @@
 <div class="form-container">
     <h2>Edit <%= displayName %></h2>
-
-    <form method="POST" action="/admin/<%= tableName %>/edit/<%= record.type %>">
+ 
+    <%
+    const primaryKey = (tableName === 'unit_type') ? 'type'
+    : (tableName === 'keywords') ? 'keyword'
+    : 'id';
+    %>
+ 
+    <form method="POST" action="/admin/<%= tableName %>/edit/<%= record[primaryKey] %>">
     <% columns.forEach(function(column) { %>
         <div class="form-group">
             <label for="<%= column %>"><%= column %>:</label>
-            <% if (column === 'primaryKey') { %>
+            <% if (column === primaryKey) { %>
                 <input type="text" id="<%= column %>" name="<%= column %>" value="<%= record[column] %>" class="form-control" readonly>
             <% } else if (typeof record[column] === 'boolean') { %>
                 <select id="<%= column %>" name="<%= column %>" class="form-control">
@@ -19,7 +25,7 @@
             <% } %>
         </div>
     <% }); %>
-    
+   
     <div style="margin-top: 2rem;">
         <button type="submit" class="btn btn-success">Update Record</button>
         <a href="/admin/<%= tableName %>" class="btn btn-primary">Cancel</a>
