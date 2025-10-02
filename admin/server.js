@@ -6,11 +6,11 @@ const bodyParser = require('body-parser');
 const path = require('path');
 const expressLayouts = require('express-ejs-layouts');
 require('dotenv').config();
-
-
+ 
+ 
 const app = express();
 const PORT = process.env.ADMIN_PORT || 3030;
-
+ 
 // Database configuration
 const dbConfig = {
     host: process.env.DB_HOST || 'localhost',
@@ -19,20 +19,20 @@ const dbConfig = {
     database: process.env.DB_NAME || 'warlordlands',
     charset: 'utf8mb4'
 };
-
+ 
 // Middleware
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(express.static('public'));
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
-
+ 
 // Layout configuration
 app.use(expressLayouts);
 app.set('layout', 'layout');
 app.set('layout extractScripts', true);
 app.set('layout extractStyles', true);
-
+ 
 // Session configuration
 app.use(session({
     name: 'admin.sid',
@@ -44,10 +44,10 @@ app.use(session({
         sameSite: 'lax'
     }
 }));
-
+ 
 // Database connection pool
 let pool;
-
+ 
 async function initializeDatabase() {
     try {
         pool = mysql.createPool(dbConfig);
@@ -57,7 +57,7 @@ async function initializeDatabase() {
         process.exit(1);
     }
 }
-
+ 
 // Authentication middleware
 function requireAuth(req, res, next) {
     if (req.session.userId) {
@@ -66,72 +66,79 @@ function requireAuth(req, res, next) {
         res.redirect('/login');
     }
 }
-
+ 
+// Primary keys
+const primaryKeys = {
+    unit_type: 'type',
+    keywords: 'keyword',
+    default: 'id'
+}
+ 
 // Routes
 app.get('/', (req, res) => {
     res.redirect('/admin');
 });
-
+ 
 // Login routes
 app.get('/login', (req, res) => {
-    res.render('login', { 
-        error: null, 
+    res.render('login', {
+        error: null,
         hideNav: true,
-        userNick: req.session.userNick 
+        userNick: req.session.userNick
     });
 });
-
+ 
 app.post('/login', async (req, res) => {
     const { nick, password } = req.body;
-    
+   
     try {
         const [rows] = await pool.execute(
             'SELECT id, nick, password_hash FROM users WHERE nick = ?',
             [nick]
         );
-        
+       
         if (rows.length === 0) {
-            return res.render('login', { 
+            return res.render('login', {
                 error: 'Invalid credentials',
                 hideNav: true,
                 userNick: req.session.userNick
             });
         }
-        
+       
         const user = rows[0];
         const isValidPassword = await bcrypt.compare(password, user.password_hash);
-        
+       
         if (!isValidPassword) {
-            return res.render('login', { 
+            return res.render('login', {
                 error: 'Invalid credentials',
                 hideNav: true,
                 userNick: req.session.userNick
             });
         }
-        
+       
         req.session.userId = user.id;
         req.session.userNick = user.nick;
         res.redirect('/admin');
-        
+       
     } catch (error) {
         console.error('Login error:', error);
-        res.render('login', { 
+        res.render('login', {
             error: 'Login failed',
             hideNav: true,
             userNick: req.session.userNick
         });
     }
 });
-
+ 
 app.get('/logout', (req, res) => {
     req.session.destroy();
     res.redirect('/login');
 });
-
+ 
 // Admin dashboard
 app.get('/admin', requireAuth, async (req, res) => {
     try {
-        const tables1 = [
+        const table1 = [
             { name: 'users', displayName: 'Admin Users' },
             { name: 'player', displayName: 'Players' },
             { name: 'realm', displayName: 'Realms' },
@@ -140,41 +147,39 @@ app.get('/admin', requireAuth, async (req, res) => {
             { name: 'game_turns', displayName: 'Game Turns' },
             { name: 'commands', displayName: 'Commands' }
         ];
-        const tables2 = [
-          
+        const table2 = [
             { name: 'unit_type', displayName: 'Unit Types' },
             { name: 'keywords', displayName: 'Keywords' },
             { name: 'unit_classes', displayName: 'Unit Classes' },
             { name: 'terrain_types', displayName: 'Terrain Types' },
             { name: 'map', displayName: 'Map Tiles' },
-            
-        ];
-        res.render('admin', { 
-            tables1,
-            tables2,
-
-            userNick: req.session.userNick 
+        ]
+       
+        res.render('admin', {
+            table1,
+            table2,
+            userNick: req.session.userNick
         });
     } catch (error) {
         console.error('Admin dashboard error:', error);
         res.status(500).send('Server error');
     }
 });
-
+ 
 // Dedicated Game Turns admin page
 app.get('/admin/game_turns', requireAuth, async (req, res) => {
     try {
         const [rows] = await pool.execute(`
-            SELECT * FROM game_turns 
+            SELECT * FROM game_turns
             ORDER BY turn_number DESC
         `);
-        
+       
         // Get any success message from session
         const turnMessage = req.session.turnMessage;
         if (req.session.turnMessage) {
             delete req.session.turnMessage; // Clear after reading
         }
-        
+       
         res.render('game_turns', {
             turns: rows,
             userNick: req.session.userNick,
@@ -186,18 +191,18 @@ app.get('/admin/game_turns', requireAuth, async (req, res) => {
         res.status(500).send('Error loading game turns');
     }
 });
-
+ 
 // Game Turns specific routes (must come before generic routes)
 app.get('/admin/game_turns/edit/:id', requireAuth, async (req, res) => {
     const { id } = req.params;
-    
+   
     try {
         const [rows] = await pool.execute('SELECT * FROM game_turns WHERE id = ?', [id]);
-        
+       
         if (rows.length === 0) {
             return res.status(404).send('Turn not found');
         }
-        
+       
         res.render('game_turns_edit', {
             turn: rows[0],
             userNick: req.session.userNick,
@@ -208,48 +213,48 @@ app.get('/admin/game_turns/edit/:id', requireAuth, async (req, res) => {
         res.status(500).send('Error loading turn');
     }
 });
-
+ 
 app.post('/admin/game_turns/edit/:id', requireAuth, async (req, res) => {
     const { id } = req.params;
     const { end_time, command_deadline } = req.body;
-    
+   
     try {
         // Server-side validation
         const now = new Date();
         const endTime = new Date(end_time);
         const commandDeadline = new Date(command_deadline);
-        
+       
         console.log('Server validation:', {
             now: now.toISOString(),
             endTime: endTime.toISOString(),
             commandDeadline: commandDeadline.toISOString()
         });
-        
+       
         let validationError = null;
-        
+       
         // Check if end time is in the future
         if (endTime <= now) {
             validationError = 'End time must be in the future!';
         }
-        
+       
         // Check if command deadline is in the future
         if (!validationError && commandDeadline <= now) {
             validationError = 'Command deadline must be in the future!';
         }
-        
+       
         // Check if command deadline is before end time
         if (!validationError && commandDeadline >= endTime) {
             validationError = 'Command deadline must be before end time!';
         }
-        
+       
         // If validation failed, re-render the form with error
         if (validationError) {
             const [rows] = await pool.execute('SELECT * FROM game_turns WHERE id = ?', [id]);
-            
+           
             if (rows.length === 0) {
                 return res.status(404).send('Turn not found');
             }
-            
+           
             return res.render('game_turns_edit', {
                 turn: rows[0],
                 userNick: req.session.userNick,
@@ -258,35 +263,35 @@ app.post('/admin/game_turns/edit/:id', requireAuth, async (req, res) => {
                 formData: { end_time, command_deadline }
             });
         }
-        
+       
         await pool.execute(
             'UPDATE game_turns SET end_time = ?, command_deadline = ? WHERE id = ?',
             [end_time, command_deadline, id]
         );
-        
+       
         res.redirect('/admin/game_turns');
     } catch (error) {
         console.error('Error updating turn:', error);
         res.status(500).send('Error updating turn');
     }
 });
-
+ 
 app.get('/admin/game_turns/add', requireAuth, async (req, res) => {
     try {
         // Get the next turn number
         const [maxTurnResult] = await pool.execute('SELECT MAX(turn_number) as maxTurn FROM game_turns');
         const nextTurnNumber = (maxTurnResult[0].maxTurn || 0) + 1;
-        
+       
         // Calculate default times
         const now = new Date();
         const defaultEndTime = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours from now
         const defaultCommandDeadline = new Date(now.getTime() + 20 * 60 * 60 * 1000); // 20 hours from now
-        
+       
         // Format for datetime-local input
         const formatDateTime = (date) => {
             return date.toLocaleString('sv-SE').slice(0, 16);
         };
-        
+       
         res.render('game_turns_add', {
             userNick: req.session.userNick,
             title: 'Add New Game Turn',
@@ -299,53 +304,53 @@ app.get('/admin/game_turns/add', requireAuth, async (req, res) => {
         res.status(500).send('Error loading form');
     }
 });
-
+ 
 app.post('/admin/game_turns/add', requireAuth, async (req, res) => {
     const { end_time, command_deadline } = req.body;
-    
+   
     try {
         // Server-side validation
         const now = new Date();
         const endTime = new Date(end_time);
         const commandDeadline = new Date(command_deadline);
-        
+       
         console.log('Server validation:', {
             now: now.toISOString(),
             endTime: endTime.toISOString(),
             commandDeadline: commandDeadline.toISOString()
         });
-        
+       
         let validationError = null;
-        
+       
         // Check if end time is in the future
         if (endTime <= now) {
             validationError = 'End time must be in the future!';
         }
-        
+       
         // Check if command deadline is in the future
         if (!validationError && commandDeadline <= now) {
             validationError = 'Command deadline must be in the future!';
         }
-        
+       
         // Check if command deadline is before end time
         if (!validationError && commandDeadline >= endTime) {
             validationError = 'Command deadline must be before end time!';
         }
-        
+       
         // If validation failed, re-render the form with error
         if (validationError) {
             // Get the next turn number
             const [maxTurnResult] = await pool.execute('SELECT MAX(turn_number) as maxTurn FROM game_turns');
             const nextTurnNumber = (maxTurnResult[0].maxTurn || 0) + 1;
-            
+           
             // Calculate default times
             const defaultEndTime = new Date(now.getTime() + 24 * 60 * 60 * 1000);
             const defaultCommandDeadline = new Date(now.getTime() + 20 * 60 * 60 * 1000);
-            
+           
             const formatDateTime = (date) => {
                 return date.toLocaleString('sv-SE').slice(0, 16);
             };
-            
+           
             return res.render('game_turns_add', {
                 userNick: req.session.userNick,
                 title: 'Add New Game Turn',
@@ -356,60 +361,60 @@ app.post('/admin/game_turns/add', requireAuth, async (req, res) => {
                 formData: { end_time, command_deadline }
             });
         }
-        
+       
         // Get the next turn number
         const [maxTurnResult] = await pool.execute('SELECT MAX(turn_number) as maxTurn FROM game_turns');
         const nextTurnNumber = (maxTurnResult[0].maxTurn || 0) + 1;
-        
+       
         // Start transaction to handle both operations
         const connection = await pool.getConnection();
         await connection.beginTransaction();
-        
+       
         try {
             // Get the current active turn before we end it
             const [currentTurnResult] = await connection.execute(
                 'SELECT * FROM game_turns WHERE status = ? ORDER BY turn_number DESC LIMIT 1',
                 ['active']
             );
-            
+           
             let commandResults = null;
-            
+           
             // If there's an active turn, process its commands first
             if (currentTurnResult.length > 0) {
                 const currentTurn = currentTurnResult[0];
                 console.log(`Processing commands for turn ${currentTurn.turn_number} before creating new turn...`);
-                
+               
                 // Process pending commands for the current turn
                 const GameTurnManager = require('../game/systems/GameTurnManager');
                 const gameTurnManager = new GameTurnManager(connection);
                 commandResults = await gameTurnManager.processPendingCommands(currentTurn.id);
-                
+               
                 console.log(`Command processing results:`, commandResults);
             }
-            
+           
             // End the current active turn if it exists
             // Set both end_time and command_deadline to now to satisfy constraints
             await connection.execute(
                 'UPDATE game_turns SET status = ?, end_time = ?, command_deadline = ? WHERE status = ?',
                 ['completed', now, now, 'active']
             );
-            
+           
             // Insert the new turn - start time should be slightly after now to avoid constraint violation
             const newStartTime = new Date(now.getTime() + 1000); // 1 second after now
             await connection.execute(
                 'INSERT INTO game_turns (turn_number, start_time, end_time, command_deadline, status) VALUES (?, ?, ?, ?, ?)',
                 [nextTurnNumber, newStartTime, end_time, command_deadline, 'active']
             );
-            
+           
             await connection.commit();
-            
+           
             // Show success message with command processing results
             if (commandResults) {
                 req.session.turnMessage = `New turn ${nextTurnNumber} created successfully! Processed ${commandResults.processed} commands (${commandResults.succeeded} succeeded, ${commandResults.failed} failed).`;
             } else {
                 req.session.turnMessage = `New turn ${nextTurnNumber} created successfully!`;
             }
-            
+           
             res.redirect('/admin/game_turns');
         } catch (error) {
             await connection.rollback();
@@ -422,10 +427,10 @@ app.post('/admin/game_turns/add', requireAuth, async (req, res) => {
         res.status(500).send('Error adding turn');
     }
 });
-
+ 
 app.post('/admin/game_turns/delete/:id', requireAuth, async (req, res) => {
     const { id } = req.params;
-    
+   
     try {
         await pool.execute('DELETE FROM game_turns WHERE id = ?', [id]);
         res.status(200).json({ success: true });
@@ -434,12 +439,12 @@ app.post('/admin/game_turns/delete/:id', requireAuth, async (req, res) => {
         res.status(500).json({ success: false, error: 'Error deleting turn' });
     }
 });
-
+ 
 // Commands management routes
 app.get('/admin/commands', requireAuth, async (req, res) => {
     try {
         const [rows] = await pool.execute(`
-            SELECT c.*, 
+            SELECT c.*,
                    p.nick as player_nick,
                    a.name as army_name,
                    gt.turn_number,
@@ -450,7 +455,7 @@ app.get('/admin/commands', requireAuth, async (req, res) => {
             LEFT JOIN game_turns gt ON c.game_turn_id = gt.id
             ORDER BY c.created_at DESC
         `);
-        
+       
         res.render('commands', {
             commands: rows,
             userNick: req.session.userNick,
@@ -461,43 +466,45 @@ app.get('/admin/commands', requireAuth, async (req, res) => {
         res.status(500).send('Error loading commands');
     }
 });
-
+ 
 // Update command status route
 app.post('/admin/commands/update/:id', requireAuth, async (req, res) => {
     const { id } = req.params;
     const { status, result } = req.body;
-    
+   
     try {
         const updateData = { status };
         if (result !== undefined) {
             updateData.result = result;
         }
-        
+       
         await pool.execute(
             'UPDATE commands SET status = ?, result = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
             [status, result || null, id]
         );
-        
+       
         res.json({ success: true });
     } catch (error) {
         console.error('Error updating command:', error);
         res.status(500).json({ success: false, error: 'Error updating command' });
     }
 });
-
+ 
 // Generic table listing route
 app.get('/admin/:table', requireAuth, async (req, res) => {
     const tableName = req.params.table;
-    
+    const primaryKey = primaryKeys[tableName] || primaryKeys.default;
+   
     try {
         const [rows] = await pool.execute(`SELECT * FROM ${tableName}`);
         const [columns] = await pool.execute(`DESCRIBE ${tableName}`);
-        
+       
         res.render('table', {
             tableName,
             displayName: getDisplayName(tableName),
             data: rows,
             columns: columns.map(col => col.Field),
+            primaryKey,
             userNick: req.session.userNick
         });
     } catch (error) {
@@ -505,59 +512,65 @@ app.get('/admin/:table', requireAuth, async (req, res) => {
         res.status(500).send('Error loading table');
     }
 });
-
+ 
 // Generic table editing route
-app.get('/admin/:table/edit/:type', requireAuth, async (req, res) => {
-    const { table, type } = req.params;
-    
-    try {
-        const [rows] = await pool.execute(`SELECT * FROM ${table} WHERE type = ?`, [type]);
-        const [columns] = await pool.execute(`DESCRIBE ${table}`);
-        
-        if (rows.length === 0) {
-            return res.status(404).send('Record not found');
-        }
-        
-        res.render('edit', {
-            tableName: table,
-            displayName: getDisplayName(table),
-            record: rows[0],
-            columns: columns.map(col => col.Field),
-            userNick: req.session.userNick
-        });
-    } catch (error) {
-        console.error(`Error loading record for editing:`, error);
-        res.status(500).send('Error loading record');
+app.get('/admin/:table/edit/:key', requireAuth, async (req, res) => {
+  const { table, key } = req.params;
+  const primaryKey = primaryKeys[table] || primaryKeys.default;
+ 
+  try {
+    const [rows] = await pool.execute(
+      `SELECT * FROM ${table} WHERE ${primaryKey} = ?`,
+      [key]
+    );
+ 
+    if (!rows || rows.length === 0) {
+      return res.status(404).send('Record not found');
     }
+ 
+    res.render('edit', {
+      tableName: table,
+      displayName: getDisplayName(table),
+      record: rows[0],
+      columns: Object.keys(rows[0]),
+      userNick: req.session.userNick
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Database error');
+  }
 });
-
+ 
 // Update record route
-app.post('/admin/:table/edit/:type', requireAuth, async (req, res) => {
-    const { table, type } = req.params;
-    const updateData = req.body;
-    
-    try {
-        const fields = Object.keys(updateData).filter(key => key !== 'type');
-        const values = fields.map(field => updateData[field]);
-        values.push(type);
-        
-        const query = `UPDATE ${table} SET ${fields.map(field => `${field} = ?`).join(', ')} WHERE type = ?`;
-        await pool.execute(query, values);
-        
-        res.redirect(`/admin/${table}`);
-    } catch (error) {
-        console.error(`Error updating record:`, error);
-        res.status(500).send('Error updating record');
-    }
+app.post('/admin/:table/edit/:key', requireAuth, async (req, res) => {
+  const { table, key } = req.params;
+  const primaryKey = primaryKeys[table] || primaryKeys.default;
+  const updates = req.body;
+ 
+  try {
+    const fields = Object.keys(updates);
+    const values = Object.values(updates);
+    values.push(key);
+ 
+    const setClause = fields.map(f => `${f} = ?`).join(', ');
+    const sql = `UPDATE ${table} SET ${setClause} WHERE ${primaryKey} = ?`;
+ 
+    await pool.execute(sql, values);
+ 
+    res.redirect(`/admin/${table}`);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Database update error');
+  }
 });
-
+ 
 // Add new record route
 app.get('/admin/:table/add', requireAuth, async (req, res) => {
     const tableName = req.params.table;
-    
+   
     try {
         const [columns] = await pool.execute(`DESCRIBE ${tableName}`);
-        
+       
         res.render('add', {
             tableName,
             displayName: getDisplayName(tableName),
@@ -569,29 +582,29 @@ app.get('/admin/:table/add', requireAuth, async (req, res) => {
         res.status(500).send('Error loading form');
     }
 });
-
+ 
 app.post('/admin/:table/add', requireAuth, async (req, res) => {
     const tableName = req.params.table;
     const insertData = req.body;
-    
+   
     try {
         const fields = Object.keys(insertData);
         const values = fields.map(field => insertData[field]);
-        
+       
         const query = `INSERT INTO ${tableName} (${fields.join(', ')}) VALUES (${fields.map(() => '?').join(', ')})`;
         await pool.execute(query, values);
-        
+       
         res.redirect(`/admin/${tableName}`);
     } catch (error) {
         console.error(`Error adding record:`, error);
         res.status(500).send('Error adding record');
     }
 });
-
+ 
 // Delete record route
 app.post('/admin/:table/delete/:id', requireAuth, async (req, res) => {
     const { table, id } = req.params;
-    
+   
     try {
         await pool.execute(`DELETE FROM ${table} WHERE id = ?`, [id]);
         res.redirect(`/admin/${table}`);
@@ -600,9 +613,9 @@ app.post('/admin/:table/delete/:id', requireAuth, async (req, res) => {
         res.status(500).send('Error deleting record');
     }
 });
-
-
-
+ 
+ 
+ 
 // Helper function to get display names
 function getDisplayName(tableName) {
     const displayNames = {
@@ -621,7 +634,7 @@ function getDisplayName(tableName) {
     };
     return displayNames[tableName] || tableName;
 }
-
+ 
 // Start server
 async function startServer() {
     await initializeDatabase();
@@ -629,5 +642,5 @@ async function startServer() {
         console.log(`Admin server running on http://localhost:${PORT}`);
     });
 }
-
+ 
 startServer().catch(console.error);
