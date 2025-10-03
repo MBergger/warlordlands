@@ -70,6 +70,7 @@ function requireAuth(req, res, next) {
 // Primary keys
 const primaryKeys = {
     unit_type: 'type',
+    terrain_types: 'type',
     keywords: 'keyword',
     default: 'id'
 }
